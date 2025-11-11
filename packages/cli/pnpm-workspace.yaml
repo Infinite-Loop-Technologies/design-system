@@ -1,0 +1,5 @@
+ignoredBuiltDependencies:
+  - msw
+
+overrides:
+  iltds: link:../../../../AppData/Local/pnpm/global/5/node_modules/iltds

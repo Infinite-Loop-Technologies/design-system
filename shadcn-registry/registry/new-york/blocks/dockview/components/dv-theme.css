@@ -1,0 +1,28 @@
+/* theme/dockview-shadcn.css */
+.dockview-theme-shadcn {
+    /* surfaces */
+    --dv-background-color: var(--color-primary);
+    --dv-group-view-background-color: var(--color-muted);
+    --dv-separator-border: var(--color-border);
+
+    /* tabs */
+    --dv-tabs-and-actions-container-height: 100px;
+    --dv-tabs-and-actions-container-font-size: 12.5px;
+    --dv-tab-divider-color: var(--color-border);
+    --dv-activegroup-visiblepanel-tab-background-color: var(--color-card);
+    --dv-inactivegroup-visiblepanel-tab-background-color: var(--color-muted);
+    --dv-activegroup-visiblepanel-tab-color: var(--color-foreground);
+    --dv-inactivegroup-visiblepanel-tab-color: var(--color-muted-foreground);
+
+    /* dnd overlay + sash */
+    --dv-drag-over-background-color: color-mix(
+        in oklab,
+        var(--color-accent) 24%,
+        transparent
+    );
+    --dv-drag-over-border-color: var(--color-accent);
+    --dv-active-sash-color: var(--color-primary);
+
+    /* floating window shadow */
+    --dv-floating-box-shadow: 0 16px 48px -12px color-mix(in oklab, black 30%, transparent);
+}
