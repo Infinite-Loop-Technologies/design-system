@@ -1,0 +1,9 @@
+packages:
+  - packages/*
+  - site
+
+onlyBuiltDependencies:
+  - '@rolldown/browser'
+  - msw
+  - sharp
+  - unrs-resolver

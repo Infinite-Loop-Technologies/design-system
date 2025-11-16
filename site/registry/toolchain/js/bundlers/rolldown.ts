@@ -2,7 +2,7 @@ import { rolldown as build, VERSION as version } from '@rolldown/browser';
 import * as RolldownAPI from '@rolldown/browser';
 import * as RolldownExperimentalAPI from '@rolldown/browser/experimental';
 // @ts-expect-error missing types
-import * as RolldownBinding from '../../../../node_modules/@rolldown/browser/dist/rolldown-binding.wasi-browser';
+import * as RolldownBinding from '@rolldown/browser/dist/rolldown-binding.wasi-browser';
 import type { Bundler } from './index';
 
 // @unocss-include
