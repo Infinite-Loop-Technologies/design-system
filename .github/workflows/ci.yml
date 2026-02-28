@@ -27,8 +27,8 @@ jobs:
 
             - name: Run affected checks (pull requests)
               if: github.event_name == 'pull_request'
-              run: moon ci :typecheck :build :lint --base origin/main --head HEAD
+              run: moon ci :typecheck :build :test :lint --base origin/main --head HEAD
 
             - name: Run full checks (main)
               if: github.event_name == 'push'
-              run: moon run :typecheck :build :lint
+              run: moon run :typecheck :build :test :lint

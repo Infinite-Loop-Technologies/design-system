@@ -21,7 +21,6 @@ export function createDragTabRecognizer() {
                 const session = {
                     tabId,
                     sourceGroupId,
-                    generatedGroupIndex: 1,
                 };
                 ctx.setSessionState(SESSION_KEY, session);
                 return {
@@ -68,7 +67,7 @@ export function createDragTabRecognizer() {
                 const preview = state?.preview;
                 if (preview) {
                     const intentSnapshot = ctx.getIntentSnapshot();
-                    const nextGroupId = asNodeId(`dock.group.generated.${session.generatedGroupIndex}`);
+                    const nextGroupId = asNodeId(`dock.group.generated.${Date.now()}`);
                     const patch = buildPatchFromPreview(intentSnapshot, preview, {
                         newGroupId: nextGroupId,
                     });

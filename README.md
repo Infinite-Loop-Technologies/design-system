@@ -20,6 +20,16 @@ pnpm --filter @loop-kit/registry dev   # Registry library
 pnpm --filter registry dev             # Next.js site
 ```
 
+## Loop CLI Dogfooding
+
+- `pnpm run loop` tries the latest published `@loop-kit/loop-cli` and falls back to local workspace CLI when unpublished.
+- `pnpm run loop:local` runs the local workspace CLI under active development.
+
+## Local Publish Pipeline
+
+- `pnpm run release:publish:all` runs Moon gates (`typecheck`, `build`, `test`) and publishes the configured public package allowlist.
+- `pnpm run release:publish:all:dry` performs a dry run.
+
 ## Core Concepts
 
 - **WASM-first**: Components as the default unit of composition

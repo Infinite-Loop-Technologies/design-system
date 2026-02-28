@@ -52,3 +52,11 @@ next-env.d.ts
 # moon
 .moon/cache
 .moon/docker
+
+# loop auth material
+loop/auth.json
+
+# loop package build artifacts
+packages/loop-cli/dist/
+packages/loop-kernel/dist/
+packages/loop-contracts/dist/

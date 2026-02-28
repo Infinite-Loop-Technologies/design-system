@@ -2,11 +2,16 @@
     "private": true,
     "scripts": {
         "build": "moon run :build",
-        "ci": "moon ci :typecheck :build :lint",
+        "ci": "moon ci :typecheck :build :test :lint",
         "lint": "moon run :lint",
+        "loop": "node tools/release/run-loop-cli.mjs",
+        "loop:stable": "pnpm dlx @loop-kit/loop-cli@latest",
+        "loop:local": "pnpm --filter @loop-kit/loop-cli build && pnpm --filter @loop-kit/loop-cli exec node dist/cli.js",
+        "release:publish:all": "node tools/release/publish-all.mjs",
+        "release:publish:all:dry": "node tools/release/publish-all.mjs --dry-run",
         "typecheck": "moon run :typecheck",
-        "release:patch": "pnpm -r version patch && pnpm -r publish --access public",
-        "release:minor": "pnpm -r version minor && pnpm -r publish --access public"
+        "release:patch": "pnpm -r version patch",
+        "release:minor": "pnpm -r version minor"
     },
     "devDependencies": {
         "@moonrepo/cli": "1.41.7",
