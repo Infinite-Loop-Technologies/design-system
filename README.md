@@ -22,8 +22,17 @@ pnpm --filter registry dev             # Next.js site
 
 ## Loop CLI Dogfooding
 
-- `pnpm run loop` tries the latest published `@loop-kit/loop-cli` and falls back to local workspace CLI when unpublished.
-- `pnpm run loop:local` runs the local workspace CLI under active development.
+- `pnpm run loop -- <args>` runs the pinned stable CLI from npm.
+- `pnpm run loop:stable -- <args>` runs the pinned stable CLI explicitly.
+- `pnpm run loop:dev -- <args>` runs the workspace CLI under active development.
+- `pnpm run loop:local -- <args>` is kept as an alias of `loop:dev`.
+- `pnpm run loop:smoke -- --cwd .` runs `loop doctor` through both stable and dev CLIs.
+  - Stable CLI smoke is a hard requirement.
+  - Dev CLI smoke is best-effort (warn-only) so CI is not blocked by in-flight dev breakage.
+
+Stable CLI pin location:
+
+- `tools/release/loop-cli-stable.json` (bump `version` here when promoting a new stable CLI).
 
 ## Local Publish Pipeline
 

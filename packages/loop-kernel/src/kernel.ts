@@ -3,8 +3,6 @@ import fg from 'fast-glob';
 import {
     err,
     ok,
-    parseLoopRef,
-    type Diagnostic,
     type LaneConfig,
     type LoopWorkspaceConfig,
     type PatchPlan,
@@ -21,6 +19,7 @@ import { runDoctor } from './doctor/index.js';
 import { buildWorkspaceGraph } from './graph/workspaceGraph.js';
 import { TypeScriptToolchainAdapter } from './toolchain/adapters/typescript.js';
 import { ToolchainRegistry } from './toolchain/registry.js';
+import type { LaneProvider } from './providers/capabilities/lane.js';
 import type {
     AddComponentResult,
     DoctorReport,
@@ -52,16 +51,26 @@ function defaultWorkspaceConfig(): LoopWorkspaceConfig {
     return {
         schemaVersion: '1',
         workspace: {
+            name: 'loop-workspace',
             appsDir: 'apps',
             packagesDir: 'packages',
             assetsDir: 'assets',
             toolsDir: 'tools',
             loopDir: 'loop',
         },
-        lanes: [
-            { id: 'local', kind: 'local', options: {} },
-            { id: 'file', kind: 'file', options: {} },
-        ],
+        lanes: {
+            local: { kind: 'local', config: {} },
+            file: { kind: 'file', config: {} },
+        },
+        defaults: {
+            componentLane: 'local',
+            moduleLane: 'local',
+            refKindMap: {
+                local: 'local',
+                loop: 'local',
+                file: 'file',
+            },
+        },
         modules: [],
         toolchains: [{ id: 'typescript', kind: 'typescript', options: {} }],
         components: {
@@ -105,6 +114,9 @@ export class LoopKernel {
             const moduleLoad = await this.providerHost.loadEnabledModules(
                 this.workspaceRoot,
                 loaded.value.config,
+                {
+                    authenticateLane: (laneId, provider) => this.authenticateLaneProvider(laneId, provider),
+                },
             );
             if (!moduleLoad.ok) {
                 return moduleLoad;
@@ -114,6 +126,67 @@ export class LoopKernel {
         }
 
         return loaded;
+    }
+
+    private async readLaneAuthStore(): Promise<{
+        schemaVersion: '1';
+        lanes: Record<string, { token: string; updatedAt: string }>;
+    }> {
+        const authPath = path.join(this.workspaceRoot, 'loop', 'auth.json');
+        const empty = {
+            schemaVersion: '1' as const,
+            lanes: {},
+        };
+
+        if (!(await this.fs.exists(authPath))) {
+            return empty;
+        }
+
+        try {
+            const raw = await this.fs.readJson<unknown>(authPath);
+            if (
+                typeof raw !== 'object' ||
+                raw === null ||
+                !('lanes' in raw) ||
+                typeof (raw as { lanes?: unknown }).lanes !== 'object' ||
+                (raw as { lanes?: unknown }).lanes === null
+            ) {
+                return empty;
+            }
+
+            return {
+                schemaVersion: '1',
+                lanes: (raw as { lanes: Record<string, { token: string; updatedAt: string }> }).lanes,
+            };
+        } catch {
+            return empty;
+        }
+    }
+
+    private async authenticateLaneProvider(
+        laneId: string,
+        provider: LaneProvider,
+    ): Promise<Result<void>> {
+        if (!provider.auth) {
+            return ok(undefined);
+        }
+
+        const authStore = await this.readLaneAuthStore();
+        const token = authStore.lanes[laneId]?.token;
+        if (!token) {
+            return ok(undefined);
+        }
+
+        const authResult = await provider.auth(token);
+        if (!authResult.ok) {
+            return err({
+                code: 'lane.auth_failed',
+                message: `Lane authentication failed for ${laneId}.`,
+                details: authResult.error as Record<string, unknown> | undefined,
+            });
+        }
+
+        return ok(undefined);
     }
 
     async init(options: { dir?: string; template?: string } = {}): Promise<Result<PatchExecutionResult>> {
@@ -241,6 +314,8 @@ export class LoopKernel {
             targetPath: options.targetPath,
             dryRun: options.dryRun,
             fs: this.fs,
+            workspaceConfig: loaded.value.config,
+            authenticateLane: (laneId, provider) => this.authenticateLaneProvider(laneId, provider),
         });
     }
 
@@ -258,6 +333,8 @@ export class LoopKernel {
             dryRun: options.dryRun,
             force: options.force,
             fs: this.fs,
+            workspaceConfig: loaded.value.config,
+            authenticateLane: (laneId, provider) => this.authenticateLaneProvider(laneId, provider),
         });
     }
 
@@ -272,6 +349,8 @@ export class LoopKernel {
 
         return diffComponent(this.workspaceRoot, this.providerHost, refText, {
             targetPath: options.targetPath,
+            workspaceConfig: loaded.value.config,
+            authenticateLane: (laneId, provider) => this.authenticateLaneProvider(laneId, provider),
         });
     }
 
@@ -304,13 +383,25 @@ export class LoopKernel {
         const config = loaded.ok ? loaded.value.config : defaultWorkspaceConfig();
 
         const statuses: LaneStatus[] = [];
-        for (const lane of config.lanes) {
-            const provider = this.providerHost.getLaneProvider(lane.id);
+        for (const [laneId, lane] of Object.entries(config.lanes)) {
+            const provider = this.providerHost.getLaneProviderByKind(lane.kind);
             if (!provider) {
                 statuses.push({
+                    laneId,
                     lane,
                     authenticated: false,
                     message: 'No provider registered for lane.',
+                });
+                continue;
+            }
+
+            const authResult = await this.authenticateLaneProvider(laneId, provider);
+            if (!authResult.ok) {
+                statuses.push({
+                    laneId,
+                    lane,
+                    authenticated: false,
+                    message: authResult.error.message,
                 });
                 continue;
             }
@@ -320,6 +411,7 @@ export class LoopKernel {
                 : { authenticated: false, message: 'Lane does not report auth status.' };
 
             statuses.push({
+                laneId,
                 lane,
                 authenticated: authStatus.authenticated,
                 message: authStatus.message,
@@ -336,12 +428,10 @@ export class LoopKernel {
         }
 
         const config = loaded.value.config;
-        const existingIndex = config.lanes.findIndex((item) => item.id === lane.id);
-        if (existingIndex >= 0) {
-            config.lanes[existingIndex] = lane;
-        } else {
-            config.lanes.push(lane);
-        }
+        config.lanes[lane.id] = {
+            kind: lane.kind,
+            config: lane.config,
+        };
 
         await this.fs.writeJson(path.join(this.workspaceRoot, 'loop.json'), config);
         return ok(config);

@@ -25,6 +25,9 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
+            - name: Loop CLI smoke (stable required, dev best-effort)
+              run: pnpm run loop:smoke -- --cwd .
+
             - name: Run affected checks (pull requests)
               if: github.event_name == 'pull_request'
               run: moon ci :typecheck :build :test :lint --base origin/main --head HEAD

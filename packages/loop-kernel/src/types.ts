@@ -3,8 +3,9 @@ import type {
     ComponentManifest,
     Diagnostic,
     KernelError,
-    LaneConfig,
+    LaneInstance,
     LoopWorkspaceConfig,
+    ModuleManifest,
     OperationResult,
     PatchPlan,
     Result,
@@ -69,7 +70,8 @@ export type ExtractResult = {
 };
 
 export type LaneStatus = {
-    lane: LaneConfig;
+    laneId: string;
+    lane: LaneInstance;
     authenticated: boolean;
     message?: string;
 };
@@ -88,6 +90,13 @@ export type LoadedWorkspace = {
 
 export type ResolveComponentResult = {
     manifest: ComponentManifest;
+    baseDir: string;
+    snapshotId: string;
+    laneId: string;
+};
+
+export type ResolveModuleResult = {
+    manifest: ModuleManifest;
     baseDir: string;
     snapshotId: string;
     laneId: string;

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1",
+  "workspace": {
+    "name": "loop-kit",
+    "appsDir": "apps",
+    "packagesDir": "packages",
+    "assetsDir": "assets",
+    "toolsDir": "tools",
+    "loopDir": "loop"
+  },
+  "lanes": {
+    "workspace": {
+      "kind": "local",
+      "config": {
+        "root": "."
+      }
+    },
+    "shared": {
+      "kind": "file",
+      "config": {
+        "path": "../loop-lane"
+      }
+    },
+    "source": {
+      "kind": "git",
+      "config": {}
+    },
+    "official": {
+      "kind": "http",
+      "config": {
+        "url": "https://example.invalid"
+      }
+    }
+  },
+  "defaults": {
+    "componentLane": "workspace",
+    "moduleLane": "workspace",
+    "refKindMap": {
+      "local": "workspace",
+      "loop": "workspace",
+      "file": "shared",
+      "http": "official",
+      "git": "source"
+    }
+  },
+  "modules": [],
+  "toolchains": [
+    {
+      "id": "typescript",
+      "kind": "typescript",
+      "options": {}
+    }
+  ],
+  "components": {
+    "defaultTarget": ".",
+    "ignoreGlobs": []
+  }
+}

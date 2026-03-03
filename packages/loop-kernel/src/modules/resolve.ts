@@ -6,10 +6,10 @@ import {
 } from '@loop-kit/loop-contracts';
 import type { ProviderHost } from '../providers/host.js';
 import type { LaneProvider } from '../providers/capabilities/lane.js';
-import type { ResolveComponentResult } from '../types.js';
+import type { ResolveModuleResult } from '../types.js';
 import { resolveLaneInstanceForRef } from '../lanes/instanceResolver.js';
 
-export async function resolveComponentRef(
+export async function resolveModuleRef(
     workspaceRoot: string,
     host: ProviderHost,
     config: LoopWorkspaceConfig,
@@ -20,7 +20,7 @@ export async function resolveComponentRef(
             provider: LaneProvider,
         ) => Promise<Result<void>>;
     } = {},
-): Promise<Result<ResolveComponentResult>> {
+): Promise<Result<ResolveModuleResult>> {
     const parsed = parseLoopRef(refText);
     if (!parsed.ok) {
         return parsed;
@@ -30,7 +30,7 @@ export async function resolveComponentRef(
         config,
         (kind) => host.getLaneProviderByKind(kind),
         parsed.value,
-        'component',
+        'module',
     );
     if (!laneResolution.ok) {
         return laneResolution;
@@ -46,12 +46,11 @@ export async function resolveComponentRef(
         }
     }
 
-    const resolved = await laneResolution.value.provider.resolveComponent({
+    const resolved = await laneResolution.value.provider.resolveModule({
         laneId: laneResolution.value.laneId,
         workspaceRoot,
         ref: laneResolution.value.ref,
     });
-
     if (!resolved.ok) {
         return resolved;
     }

@@ -18,3 +18,22 @@ test('program exposes expected top-level commands', () => {
     assert.ok(names.includes('lane'));
     assert.ok(names.includes('toolchain'));
 });
+
+test('lane add exposes --config and legacy --options flags', () => {
+    const program = createProgram();
+    const lane = program.commands.find((command) => command.name() === 'lane');
+    assert.ok(lane);
+    if (!lane) {
+        return;
+    }
+
+    const laneAdd = lane.commands.find((command) => command.name() === 'add');
+    assert.ok(laneAdd);
+    if (!laneAdd) {
+        return;
+    }
+
+    const flags = laneAdd.options.map((option) => option.flags);
+    assert.ok(flags.includes('--config <json>'));
+    assert.ok(flags.includes('--options <json>'));
+});

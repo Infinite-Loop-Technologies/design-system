@@ -15,6 +15,7 @@ const DEFAULT_TSCONFIG_BASE = {
 };
 
 export type InitWorkspaceOptions = {
+    name?: string;
     appsDir?: string;
     packagesDir?: string;
     assetsDir?: string;
@@ -23,6 +24,7 @@ export type InitWorkspaceOptions = {
 };
 
 export function initWorkspacePlan(options: InitWorkspaceOptions = {}): PatchPlan {
+    const name = options.name ?? 'loop-workspace';
     const appsDir = options.appsDir ?? 'apps';
     const packagesDir = options.packagesDir ?? 'packages';
     const assetsDir = options.assetsDir ?? 'assets';
@@ -38,16 +40,26 @@ export function initWorkspacePlan(options: InitWorkspaceOptions = {}): PatchPlan
             content: stableStringify({
                 schemaVersion: '1',
                 workspace: {
+                    name,
                     appsDir,
                     packagesDir,
                     assetsDir,
                     toolsDir,
                     loopDir,
                 },
-                lanes: [
-                    { id: 'local', kind: 'local', options: {} },
-                    { id: 'file', kind: 'file', options: {} },
-                ],
+                lanes: {
+                    local: { kind: 'local', config: {} },
+                    file: { kind: 'file', config: {} },
+                },
+                defaults: {
+                    componentLane: 'local',
+                    moduleLane: 'local',
+                    refKindMap: {
+                        local: 'local',
+                        loop: 'local',
+                        file: 'file',
+                    },
+                },
                 modules: [],
                 toolchains: [
                     { id: 'typescript', kind: 'typescript', options: {} },

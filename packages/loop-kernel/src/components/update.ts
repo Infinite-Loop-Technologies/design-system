@@ -2,10 +2,12 @@ import path from 'node:path';
 import {
     err,
     ok,
+    type LoopWorkspaceConfig,
     type Result,
 } from '@loop-kit/loop-contracts';
 import { nodeFsGateway, type FsGateway } from '../io/fsGateway.js';
 import type { ProviderHost } from '../providers/host.js';
+import type { LaneProvider } from '../providers/capabilities/lane.js';
 import { executePatchPlan } from '../patch/executor.js';
 import { sha256 } from '../utils/hash.js';
 import type { UpdateComponentResult } from '../types.js';
@@ -30,6 +32,39 @@ function normalizeTargetPath(workspaceRoot: string, targetPath: string | undefin
     return targetPath;
 }
 
+function fallbackWorkspaceConfig(): LoopWorkspaceConfig {
+    return {
+        schemaVersion: '1',
+        workspace: {
+            name: 'loop-workspace',
+            appsDir: 'apps',
+            packagesDir: 'packages',
+            assetsDir: 'assets',
+            toolsDir: 'tools',
+            loopDir: 'loop',
+        },
+        lanes: {
+            local: { kind: 'local', config: {} },
+            file: { kind: 'file', config: {} },
+        },
+        defaults: {
+            componentLane: 'local',
+            moduleLane: 'local',
+            refKindMap: {
+                local: 'local',
+                loop: 'local',
+                file: 'file',
+            },
+        },
+        modules: [],
+        toolchains: [{ id: 'typescript', kind: 'typescript', options: {} }],
+        components: {
+            defaultTarget: '.',
+            ignoreGlobs: [],
+        },
+    };
+}
+
 export async function updateComponent(
     workspaceRoot: string,
     host: ProviderHost,
@@ -39,10 +74,24 @@ export async function updateComponent(
         force?: boolean;
         dryRun?: boolean;
         fs?: FsGateway;
+        workspaceConfig?: LoopWorkspaceConfig;
+        authenticateLane?: (
+            laneId: string,
+            provider: LaneProvider,
+        ) => Promise<Result<void>>;
     } = {},
 ): Promise<Result<UpdateComponentResult>> {
     const fs = options.fs ?? nodeFsGateway;
-    const resolved = await resolveComponentRef(workspaceRoot, host, refText);
+    const workspaceConfig = options.workspaceConfig ?? fallbackWorkspaceConfig();
+    const resolved = await resolveComponentRef(
+        workspaceRoot,
+        host,
+        workspaceConfig,
+        refText,
+        {
+            authenticateLane: options.authenticateLane,
+        },
+    );
     if (!resolved.ok) {
         return resolved;
     }
@@ -117,7 +166,7 @@ export async function updateComponent(
         fs,
     });
 
-    if (options.dryRun) {
+    if (options.dryRun || !execution.applied) {
         return ok({
             plan,
             execution,

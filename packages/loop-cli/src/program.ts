@@ -167,13 +167,15 @@ export function createProgram(): Command {
         .command('add')
         .requiredOption('--id <id>', 'Lane ID')
         .requiredOption('--kind <kind>', 'Lane kind')
+        .option('--config <json>', 'Lane config JSON')
         .option('--options <json>', 'Lane options JSON')
-        .action(async (options: { id: string; kind: string; options?: string }) => {
+        .action(async (options: { id: string; kind: string; config?: string; options?: string }) => {
             const root = program.opts<{ cwd?: string }>();
             await handleLaneAdd({
                 cwd: root.cwd,
                 id: options.id,
                 kind: options.kind,
+                configJson: options.config,
                 optionsJson: options.options,
             });
         });

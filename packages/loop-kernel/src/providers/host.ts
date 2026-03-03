@@ -1,24 +1,24 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-    ModuleManifestSchema,
     err,
+    ok,
     parseLoopRef,
     type LoopWorkspaceConfig,
     type Result,
 } from '@loop-kit/loop-contracts';
-import { nodeFsGateway } from '../io/fsGateway.js';
 import type { LaneProvider } from './capabilities/lane.js';
 import type { PatchAdapter } from './capabilities/patchAdapter.js';
 import type { ToolchainAdapter } from './capabilities/toolchain.js';
+import { resolveLaneInstanceForRef } from '../lanes/instanceResolver.js';
 
 export class ProviderHost {
-    private readonly laneProviders = new Map<string, LaneProvider>();
+    private readonly laneProvidersByKind = new Map<string, LaneProvider>();
     private readonly patchAdapters = new Map<string, PatchAdapter>();
     private readonly toolchainAdapters = new Map<string, ToolchainAdapter>();
 
     registerLaneProvider(provider: LaneProvider): void {
-        this.laneProviders.set(provider.id, provider);
+        this.laneProvidersByKind.set(provider.kind, provider);
     }
 
     registerPatchAdapter(provider: PatchAdapter): void {
@@ -30,7 +30,11 @@ export class ProviderHost {
     }
 
     getLaneProvider(id: string): LaneProvider | undefined {
-        return this.laneProviders.get(id);
+        return this.getLaneProviderByKind(id);
+    }
+
+    getLaneProviderByKind(kind: string): LaneProvider | undefined {
+        return this.laneProvidersByKind.get(kind);
     }
 
     getPatchAdapter(id: string): PatchAdapter | undefined {
@@ -42,7 +46,7 @@ export class ProviderHost {
     }
 
     listLaneProviders(): LaneProvider[] {
-        return Array.from(this.laneProviders.values());
+        return Array.from(this.laneProvidersByKind.values());
     }
 
     listToolchainAdapters(): ToolchainAdapter[] {
@@ -52,6 +56,12 @@ export class ProviderHost {
     async loadEnabledModules(
         workspaceRoot: string,
         config: LoopWorkspaceConfig,
+        options: {
+            authenticateLane?: (
+                laneId: string,
+                provider: LaneProvider,
+            ) => Promise<Result<void>>;
+        } = {},
     ): Promise<Result<{ loaded: string[] }>> {
         const loaded: string[] = [];
 
@@ -61,54 +71,39 @@ export class ProviderHost {
                 return parsed;
             }
 
-            const ref = parsed.value;
-            let baseDir: string | undefined;
-
-            if (ref.kind === 'file') {
-                baseDir = path.isAbsolute(ref.path)
-                    ? ref.path
-                    : path.resolve(workspaceRoot, ref.path);
-            } else if (ref.kind === 'local') {
-                baseDir = path.resolve(workspaceRoot, 'loop', 'modules', ref.id);
-            } else {
-                return err({
-                    code: 'module.ref_not_supported',
-                    message: `Module ref kind ${ref.kind} is not supported for dynamic module loading yet.`,
-                });
+            const laneResolution = resolveLaneInstanceForRef(
+                config,
+                (kind) => this.getLaneProviderByKind(kind),
+                parsed.value,
+                'module',
+            );
+            if (!laneResolution.ok) {
+                return laneResolution;
             }
 
-            if (!baseDir) {
-                return err({
-                    code: 'module.base_dir_missing',
-                    message: `Failed to resolve module base directory for ${moduleEntry.ref}`,
-                });
+            if (options.authenticateLane) {
+                const authResult = await options.authenticateLane(
+                    laneResolution.value.laneId,
+                    laneResolution.value.provider,
+                );
+                if (!authResult.ok) {
+                    return authResult;
+                }
             }
 
-            const manifestPath = path.join(baseDir, 'loop.module.json');
-            let manifestRaw: unknown;
-            try {
-                const rawText = await nodeFsGateway.readText(manifestPath);
-                manifestRaw = JSON.parse(rawText);
-            } catch (error) {
-                return err({
-                    code: 'module.manifest_missing',
-                    message: `Failed loading module manifest at ${manifestPath}`,
-                    details: { error: String(error) },
-                });
+            const resolved = await laneResolution.value.provider.resolveModule({
+                laneId: laneResolution.value.laneId,
+                ref: laneResolution.value.ref,
+                workspaceRoot,
+            });
+            if (!resolved.ok) {
+                return resolved;
             }
 
-            const parsedManifest = ModuleManifestSchema.safeParse(manifestRaw);
-            if (!parsedManifest.success) {
-                return err({
-                    code: 'module.manifest_invalid',
-                    message: `Module manifest schema validation failed at ${manifestPath}`,
-                    details: {
-                        issues: parsedManifest.error.issues,
-                    },
-                });
-            }
+            const manifest = resolved.value.manifest;
+            const baseDir = path.resolve(resolved.value.baseDir);
 
-            const entryPath = path.resolve(baseDir, parsedManifest.data.entry);
+            const entryPath = path.resolve(baseDir, manifest.entry);
             let imported: Record<string, unknown>;
             try {
                 imported = await import(pathToFileURL(entryPath).href);
@@ -127,16 +122,13 @@ export class ProviderHost {
             } else {
                 return err({
                     code: 'module.missing_register_hook',
-                    message: `Module ${parsedManifest.data.id} does not export registerProviders/default.`,
+                    message: `Module ${manifest.id} does not export registerProviders/default.`,
                 });
             }
 
-            loaded.push(parsedManifest.data.id);
+            loaded.push(manifest.id);
         }
 
-        return {
-            ok: true,
-            value: { loaded },
-        };
+        return ok({ loaded });
     }
 }

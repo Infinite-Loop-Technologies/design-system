@@ -14,7 +14,10 @@ Shared loop wire contracts and schemas.
 ## Usage
 
 ```ts
-import { LoopWorkspaceConfigSchema, parseLoopRef } from '@loop-kit/loop-contracts';
+import {
+    LoopWorkspaceConfigSchema,
+    parseLoopRef,
+} from '@loop-kit/loop-contracts';
 
 const config = LoopWorkspaceConfigSchema.parse(rawConfig);
 const ref = parseLoopRef('local:ui-button');

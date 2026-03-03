@@ -13,7 +13,7 @@ export async function handleLaneList(options: { cwd?: string; json?: boolean }):
     }
 
     for (const lane of result.value) {
-        console.log(`${lane.lane.id} (${lane.lane.kind}) auth=${lane.authenticated} ${lane.message ?? ''}`.trim());
+        console.log(`${lane.laneId} (${lane.lane.kind}) auth=${lane.authenticated} ${lane.message ?? ''}`.trim());
     }
 }
 
@@ -21,15 +21,17 @@ export async function handleLaneAdd(options: {
     cwd?: string;
     id: string;
     kind: string;
+    configJson?: string;
     optionsJson?: string;
 }): Promise<void> {
     const kernel = createKernel({ workspaceRoot: options.cwd });
-    const laneOptions = options.optionsJson ? JSON.parse(options.optionsJson) : {};
+    const laneConfigJson = options.configJson ?? options.optionsJson;
+    const laneConfig = laneConfigJson ? JSON.parse(laneConfigJson) : {};
 
     const result = await kernel.laneAdd({
         id: options.id,
         kind: options.kind,
-        options: laneOptions,
+        config: laneConfig,
     });
 
     if (!result.ok) {

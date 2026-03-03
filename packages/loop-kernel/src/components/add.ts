@@ -1,10 +1,12 @@
 import path from 'node:path';
 import {
     ok,
+    type LoopWorkspaceConfig,
     type Result,
 } from '@loop-kit/loop-contracts';
 import { nodeFsGateway, type FsGateway } from '../io/fsGateway.js';
 import type { ProviderHost } from '../providers/host.js';
+import type { LaneProvider } from '../providers/capabilities/lane.js';
 import { executePatchPlan } from '../patch/executor.js';
 import { sha256 } from '../utils/hash.js';
 import type { AddComponentResult } from '../types.js';
@@ -28,6 +30,39 @@ function normalizeTargetPath(workspaceRoot: string, targetPath: string | undefin
     return targetPath;
 }
 
+function fallbackWorkspaceConfig(): LoopWorkspaceConfig {
+    return {
+        schemaVersion: '1',
+        workspace: {
+            name: 'loop-workspace',
+            appsDir: 'apps',
+            packagesDir: 'packages',
+            assetsDir: 'assets',
+            toolsDir: 'tools',
+            loopDir: 'loop',
+        },
+        lanes: {
+            local: { kind: 'local', config: {} },
+            file: { kind: 'file', config: {} },
+        },
+        defaults: {
+            componentLane: 'local',
+            moduleLane: 'local',
+            refKindMap: {
+                local: 'local',
+                loop: 'local',
+                file: 'file',
+            },
+        },
+        modules: [],
+        toolchains: [{ id: 'typescript', kind: 'typescript', options: {} }],
+        components: {
+            defaultTarget: '.',
+            ignoreGlobs: [],
+        },
+    };
+}
+
 export async function addComponent(
     workspaceRoot: string,
     host: ProviderHost,
@@ -36,10 +71,24 @@ export async function addComponent(
         targetPath?: string;
         dryRun?: boolean;
         fs?: FsGateway;
+        workspaceConfig?: LoopWorkspaceConfig;
+        authenticateLane?: (
+            laneId: string,
+            provider: LaneProvider,
+        ) => Promise<Result<void>>;
     } = {},
 ): Promise<Result<AddComponentResult>> {
     const fs = options.fs ?? nodeFsGateway;
-    const resolved = await resolveComponentRef(workspaceRoot, host, refText);
+    const workspaceConfig = options.workspaceConfig ?? fallbackWorkspaceConfig();
+    const resolved = await resolveComponentRef(
+        workspaceRoot,
+        host,
+        workspaceConfig,
+        refText,
+        {
+            authenticateLane: options.authenticateLane,
+        },
+    );
     if (!resolved.ok) {
         return resolved;
     }
@@ -58,7 +107,7 @@ export async function addComponent(
         fs,
     });
 
-    if (!options.dryRun) {
+    if (!options.dryRun && execution.applied) {
         const lockfile = await readComponentLockfile(workspaceRoot, fs);
         const managedFiles = [] as Array<{ path: string; sha256: string; mtimeMs: number }>;
         for (const entry of resolved.value.manifest.files) {
