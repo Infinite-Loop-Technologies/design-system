@@ -35,6 +35,8 @@
   "defaults": {
     "componentLane": "workspace",
     "moduleLane": "workspace",
+    "activeToolchainId": "typescript",
+    "ciPipeline": "ci",
     "refKindMap": {
       "local": "workspace",
       "loop": "workspace",
@@ -48,11 +50,69 @@
     {
       "id": "typescript",
       "kind": "typescript",
-      "options": {}
+      "config": {}
     }
   ],
   "components": {
     "defaultTarget": ".",
     "ignoreGlobs": []
+  },
+  "tasks": {
+    "build": {
+      "command": "pnpm",
+      "args": [
+        "-r",
+        "--if-present",
+        "run",
+        "build"
+      ]
+    },
+    "typecheck": {
+      "command": "pnpm",
+      "args": [
+        "-r",
+        "--if-present",
+        "run",
+        "typecheck"
+      ]
+    },
+    "test": {
+      "command": "pnpm",
+      "args": [
+        "-r",
+        "--if-present",
+        "run",
+        "test"
+      ]
+    },
+    "workbench:build": {
+      "command": "pnpm",
+      "args": [
+        "--filter",
+        "@loop-kit/workbench",
+        "build"
+      ]
+    },
+    "dev:shell": {
+      "command": "pnpm",
+      "args": [
+        "run",
+        "dev:shell:local"
+      ]
+    }
+  },
+  "pipelines": {
+    "ci": {
+      "tasks": [
+        "typecheck",
+        "build",
+        "test",
+        "workbench:build"
+      ]
+    }
+  },
+  "overrides": {
+    "components": {},
+    "modules": {}
   }
 }

@@ -23,7 +23,9 @@
 
 # production
 /build
+/dist
 /target
+apps/workbench/dist/
 
 # misc
 .DS_Store
@@ -49,9 +51,8 @@ next-env.d.ts
 # stash
 /vault
 
-# moon
-.moon/cache
-.moon/docker
+# moon (legacy cache)
+.moon/
 
 # loop auth material
 loop/auth.json

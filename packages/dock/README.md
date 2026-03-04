@@ -52,6 +52,6 @@ export function DockApp() {
 
 ## Commands
 
-- `moon run dock:typecheck`
-- `moon run dock:test`
-- `moon run dock:build`
+- `pnpm --filter @loop-kit/dock run typecheck`
+- `pnpm --filter @loop-kit/dock run test`
+- `pnpm --filter @loop-kit/dock run build`

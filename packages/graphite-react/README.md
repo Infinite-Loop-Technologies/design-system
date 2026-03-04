@@ -52,5 +52,5 @@ export function App() {
 
 ## Commands
 
-- `moon run graphite-react:typecheck`
-- `moon run graphite-react:build`
+- `pnpm --filter @loop-kit/graphite-react run typecheck`
+- `pnpm --filter @loop-kit/graphite-react run build`

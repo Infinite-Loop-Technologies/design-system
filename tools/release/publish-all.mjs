@@ -75,7 +75,7 @@ function parseArgs(argv) {
                 '',
                 'Options:',
                 '  --dry-run      Pack only, do not publish',
-                '  --skip-checks  Skip moon typecheck/build/test gate',
+                '  --skip-checks  Skip loop ci gate',
                 '  --tag <tag>    Publish dist-tag (for example next)',
             ].join('\n'));
             process.exit(0);
@@ -127,15 +127,7 @@ function setupNpmAuthUserConfig() {
 }
 
 function runChecks() {
-    const targets = [];
-
-    for (const item of PUBLISH_ORDER) {
-        for (const task of item.tasks) {
-            targets.push(`${item.moonProject}:${task}`);
-        }
-    }
-
-    run('moon', ['run', ...targets]);
+    run('pnpm', ['run', 'loop', '--', 'ci', '--cwd', '.']);
 }
 
 function publishOne(item, options) {

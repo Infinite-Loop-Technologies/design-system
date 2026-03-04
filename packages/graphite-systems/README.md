@@ -37,5 +37,5 @@ editingFacet.registerEditingActions(actions);
 
 ## Commands
 
-- `moon run graphite-systems:typecheck`
-- `moon run graphite-systems:build`
+- `pnpm --filter @loop-kit/graphite-systems run typecheck`
+- `pnpm --filter @loop-kit/graphite-systems run build`
