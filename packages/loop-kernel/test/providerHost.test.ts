@@ -46,16 +46,23 @@ test('provider host returns typed error when module has no register hook', async
                     loop: 'workspace',
                     file: 'shared',
                 },
+                ciPipeline: 'ci',
             },
             modules: [
                 { ref: 'local:bad-module' },
             ],
             toolchains: [
-                { id: 'typescript', kind: 'typescript', options: {} },
+                { id: 'typescript', kind: 'typescript', config: {} },
             ],
             components: {
                 defaultTarget: '.',
                 ignoreGlobs: [],
+            },
+            tasks: {},
+            pipelines: {},
+            overrides: {
+                components: {},
+                modules: {},
             },
         };
 

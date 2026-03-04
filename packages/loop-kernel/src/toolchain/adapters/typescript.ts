@@ -6,10 +6,14 @@ import {
     type PatchPlan,
     type ToolchainDetectRequest,
     type ToolchainDetectResponse,
+    type ToolchainDiagnoseRequest,
+    type ToolchainDiagnoseResponse,
     type ToolchainPlanFixRequest,
     type ToolchainPlanFixResponse,
     type ToolchainRunRequest,
     type ToolchainRunResponse,
+    type ToolchainTasksRequest,
+    type ToolchainTasksResponse,
     type Result,
 } from '@loop-kit/loop-contracts';
 import { nodeFsGateway } from '../../io/fsGateway.js';
@@ -84,6 +88,60 @@ export class TypeScriptToolchainAdapter implements ToolchainAdapter {
             details: {
                 tsconfigCount: tsconfigs.length,
             },
+        });
+    }
+
+    async diagnose(
+        request: ToolchainDiagnoseRequest,
+    ): Promise<Result<ToolchainDiagnoseResponse>> {
+        const detected = await this.detect(request);
+        if (!detected.ok) {
+            return detected;
+        }
+
+        return ok({
+            id: this.id,
+            diagnostics: detected.value.diagnostics,
+            details: detected.value.details,
+        });
+    }
+
+    async tasks(
+        request: ToolchainTasksRequest,
+    ): Promise<Result<ToolchainTasksResponse>> {
+        const baseTasks: ToolchainTasksResponse['tasks'] = {
+            build: {
+                command: 'pnpm',
+                args: ['-r', '--if-present', 'run', 'build'],
+                cwd: '.',
+                deps: [],
+                env: {},
+                inputs: [],
+                outputs: [],
+            },
+            typecheck: {
+                command: 'pnpm',
+                args: ['-r', '--if-present', 'run', 'typecheck'],
+                cwd: '.',
+                deps: [],
+                env: {},
+                inputs: [],
+                outputs: [],
+            },
+            test: {
+                command: 'pnpm',
+                args: ['-r', '--if-present', 'run', 'test'],
+                cwd: '.',
+                deps: [],
+                env: {},
+                inputs: [],
+                outputs: [],
+            },
+        };
+
+        return ok({
+            id: this.id,
+            tasks: baseTasks,
         });
     }
 

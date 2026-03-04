@@ -6,6 +6,14 @@ import { handleGraph } from './commands/graph.js';
 import { handleNewApp, handleNewPkg } from './commands/new.js';
 import { handleAdd, handleDiff, handleUpdate } from './commands/component.js';
 import { handleExtract } from './commands/extract.js';
+import { handleAdopt } from './commands/adopt.js';
+import { handleRun, handleCi } from './commands/run.js';
+import { handleUndo } from './commands/undo.js';
+import { handleComponentList, handleComponentShow } from './commands/componentCatalog.js';
+import { handleRequest } from './commands/request.js';
+import { handleLoopdStart, handleLoopdStatus, handleLoopdStop } from './commands/loopd.js';
+import { handleMcpServe } from './commands/mcp.js';
+import { handleAiDoctor } from './commands/ai.js';
 import { handleLaneAdd, handleLaneAuth, handleLaneList } from './commands/lane.js';
 import { handleToolchainStatus, handleToolchainSync } from './commands/toolchain.js';
 
@@ -63,6 +71,36 @@ export function createProgram(): Command {
         .action(async (options: { json?: boolean; summary?: boolean }) => {
             const root = program.opts<{ cwd?: string }>();
             await handleGraph({ cwd: root.cwd, json: options.json, summary: options.summary });
+        });
+
+    program
+        .command('run <taskId>')
+        .description('Run a configured workspace task')
+        .option('--parallel', 'Run independent tasks in parallel')
+        .option('--json', 'Print JSON summary')
+        .action(async (taskId: string, options: { parallel?: boolean; json?: boolean }) => {
+            const root = program.opts<{ cwd?: string }>();
+            await handleRun(taskId, {
+                cwd: root.cwd,
+                parallel: options.parallel,
+                json: options.json,
+            });
+        });
+
+    program
+        .command('ci')
+        .description('Run configured CI pipeline')
+        .option('--pipeline <id>', 'Pipeline ID')
+        .option('--parallel', 'Run independent tasks in parallel')
+        .option('--json', 'Print JSON summary')
+        .action(async (options: { pipeline?: string; parallel?: boolean; json?: boolean }) => {
+            const root = program.opts<{ cwd?: string }>();
+            await handleCi({
+                cwd: root.cwd,
+                pipeline: options.pipeline,
+                parallel: options.parallel,
+                json: options.json,
+            });
         });
 
     const newCommand = program.command('new').description('Create app/pkg scaffolds');
@@ -151,6 +189,137 @@ export function createProgram(): Command {
                 relocate: options.relocate,
                 packageToo: options.packageToo,
                 dryRun: options.dryRun,
+            });
+        });
+
+    program
+        .command('adopt <installedRef>')
+        .description('Adopt an installed component into loop/components')
+        .requiredOption('--as <componentId>', 'New local component ID')
+        .option('--dry-run', 'Do not write files')
+        .option('--json', 'Print JSON')
+        .action(async (installedRef: string, options: { as: string; dryRun?: boolean; json?: boolean }) => {
+            const root = program.opts<{ cwd?: string }>();
+            await handleAdopt(installedRef, {
+                cwd: root.cwd,
+                as: options.as,
+                dryRun: options.dryRun,
+                json: options.json,
+            });
+        });
+
+    program
+        .command('undo <undoId>')
+        .description('Apply a persisted undo journal')
+        .option('--dry-run', 'Preview undo changes')
+        .option('--json', 'Print JSON')
+        .action(async (undoId: string, options: { dryRun?: boolean; json?: boolean }) => {
+            const root = program.opts<{ cwd?: string }>();
+            await handleUndo(undoId, {
+                cwd: root.cwd,
+                dryRun: options.dryRun,
+                json: options.json,
+            });
+        });
+
+    const component = program.command('component').description('Component catalog');
+    component
+        .command('list')
+        .option('--query <q>', 'Search query')
+        .option('--json', 'Print JSON')
+        .action(async (options: { query?: string; json?: boolean }) => {
+            const root = program.opts<{ cwd?: string }>();
+            await handleComponentList({
+                cwd: root.cwd,
+                query: options.query,
+                json: options.json,
+            });
+        });
+
+    component
+        .command('show <id>')
+        .option('--json', 'Print JSON')
+        .action(async (id: string, options: { json?: boolean }) => {
+            const root = program.opts<{ cwd?: string }>();
+            await handleComponentShow(id, {
+                cwd: root.cwd,
+                json: options.json,
+            });
+        });
+
+    program
+        .command('request')
+        .description('Generate a local change request stub')
+        .option('--type <kind>', 'Request kind')
+        .option('--from <ref>', 'Request source ref')
+        .option('--output <path>', 'Output path')
+        .action(async (options: { type?: string; from?: string; output?: string }) => {
+            const root = program.opts<{ cwd?: string }>();
+            await handleRequest({
+                cwd: root.cwd,
+                type: options.type,
+                from: options.from,
+                output: options.output,
+            });
+        });
+
+    const loopd = program.command('loopd').description('Loop daemon');
+    loopd
+        .command('start')
+        .option('--port <port>', 'Port override', (value) => Number(value))
+        .option('--json', 'Print JSON')
+        .action(async (options: { port?: number; json?: boolean }) => {
+            const root = program.opts<{ cwd?: string }>();
+            await handleLoopdStart({
+                cwd: root.cwd,
+                port: options.port,
+                json: options.json,
+            });
+        });
+
+    loopd
+        .command('stop')
+        .option('--json', 'Print JSON')
+        .action(async (options: { json?: boolean }) => {
+            const root = program.opts<{ cwd?: string }>();
+            await handleLoopdStop({
+                cwd: root.cwd,
+                json: options.json,
+            });
+        });
+
+    loopd
+        .command('status')
+        .option('--json', 'Print JSON')
+        .action(async (options: { json?: boolean }) => {
+            const root = program.opts<{ cwd?: string }>();
+            await handleLoopdStatus({
+                cwd: root.cwd,
+                json: options.json,
+            });
+        });
+
+    const mcp = program.command('mcp').description('MCP server');
+    mcp
+        .command('serve')
+        .action(async () => {
+            const root = program.opts<{ cwd?: string }>();
+            await handleMcpServe({
+                cwd: root.cwd,
+            });
+        });
+
+    const ai = program.command('ai').description('AI assistant tools');
+    ai
+        .command('doctor')
+        .option('--apply', 'Apply safe fixes')
+        .option('--json', 'Print JSON')
+        .action(async (options: { apply?: boolean; json?: boolean }) => {
+            const root = program.opts<{ cwd?: string }>();
+            await handleAiDoctor({
+                cwd: root.cwd,
+                apply: options.apply,
+                json: options.json,
             });
         });
 

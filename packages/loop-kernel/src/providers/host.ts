@@ -3,14 +3,13 @@ import { pathToFileURL } from 'node:url';
 import {
     err,
     ok,
-    parseLoopRef,
     type LoopWorkspaceConfig,
     type Result,
 } from '@loop-kit/loop-contracts';
 import type { LaneProvider } from './capabilities/lane.js';
 import type { PatchAdapter } from './capabilities/patchAdapter.js';
 import type { ToolchainAdapter } from './capabilities/toolchain.js';
-import { resolveLaneInstanceForRef } from '../lanes/instanceResolver.js';
+import { resolveModuleRef } from '../modules/resolve.js';
 
 export class ProviderHost {
     private readonly laneProvidersByKind = new Map<string, LaneProvider>();
@@ -66,36 +65,15 @@ export class ProviderHost {
         const loaded: string[] = [];
 
         for (const moduleEntry of config.modules) {
-            const parsed = parseLoopRef(moduleEntry.ref);
-            if (!parsed.ok) {
-                return parsed;
-            }
-
-            const laneResolution = resolveLaneInstanceForRef(
-                config,
-                (kind) => this.getLaneProviderByKind(kind),
-                parsed.value,
-                'module',
-            );
-            if (!laneResolution.ok) {
-                return laneResolution;
-            }
-
-            if (options.authenticateLane) {
-                const authResult = await options.authenticateLane(
-                    laneResolution.value.laneId,
-                    laneResolution.value.provider,
-                );
-                if (!authResult.ok) {
-                    return authResult;
-                }
-            }
-
-            const resolved = await laneResolution.value.provider.resolveModule({
-                laneId: laneResolution.value.laneId,
-                ref: laneResolution.value.ref,
+            const resolved = await resolveModuleRef(
                 workspaceRoot,
-            });
+                this,
+                config,
+                moduleEntry.ref,
+                {
+                    authenticateLane: options.authenticateLane,
+                },
+            );
             if (!resolved.ok) {
                 return resolved;
             }

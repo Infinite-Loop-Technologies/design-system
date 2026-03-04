@@ -3,9 +3,12 @@ import fg from 'fast-glob';
 import {
     err,
     ok,
+    type ComponentManifest,
     type LaneConfig,
     type LoopWorkspaceConfig,
+    type PipelineRunSummary,
     type PatchPlan,
+    type TaskEvent,
     type Result,
 } from '@loop-kit/loop-contracts';
 import { nodeFsGateway, type FsGateway } from './io/fsGateway.js';
@@ -22,13 +25,18 @@ import { ToolchainRegistry } from './toolchain/registry.js';
 import type { LaneProvider } from './providers/capabilities/lane.js';
 import type {
     AddComponentResult,
+    AdoptResult,
+    CiOptions,
     DoctorReport,
     DiffComponentResult,
+    ListedComponent,
     KernelOptions,
     LaneStatus,
     LoadedWorkspace,
     PatchExecutionResult,
+    RunTaskResult,
     ToolchainStatus,
+    UndoResult,
     UpdateComponentResult,
     WorkspaceGraph,
 } from './types.js';
@@ -40,6 +48,17 @@ import { addComponent } from './components/add.js';
 import { updateComponent } from './components/update.js';
 import { diffComponent } from './components/diff.js';
 import { extractComponent } from './components/extract.js';
+import { adoptComponent } from './components/adopt.js';
+import { listWorkspaceComponents, showWorkspaceComponent } from './components/list.js';
+import {
+    executeUndoJournal,
+    loadUndoJournal,
+    persistUndoJournal,
+} from './undo/journal.js';
+import {
+    runPipeline,
+    runTask as runConfiguredTask,
+} from './tasks/runner.js';
 
 type FixOptions = {
     allSafe?: boolean;
@@ -70,12 +89,19 @@ function defaultWorkspaceConfig(): LoopWorkspaceConfig {
                 loop: 'local',
                 file: 'file',
             },
+            ciPipeline: 'ci',
         },
         modules: [],
-        toolchains: [{ id: 'typescript', kind: 'typescript', options: {} }],
+        toolchains: [{ id: 'typescript', kind: 'typescript', config: {} }],
         components: {
             defaultTarget: '.',
             ignoreGlobs: [],
+        },
+        tasks: {},
+        pipelines: {},
+        overrides: {
+            components: {},
+            modules: {},
         },
     };
 }
@@ -310,13 +336,32 @@ export class LoopKernel {
             return loaded;
         }
 
-        return addComponent(this.workspaceRoot, this.providerHost, refText, {
+        const added = await addComponent(this.workspaceRoot, this.providerHost, refText, {
             targetPath: options.targetPath,
             dryRun: options.dryRun,
             fs: this.fs,
             workspaceConfig: loaded.value.config,
             authenticateLane: (laneId, provider) => this.authenticateLaneProvider(laneId, provider),
         });
+        if (!added.ok) {
+            return added;
+        }
+
+        if (added.value.execution.applied && added.value.undoSnapshot) {
+            const undoPersisted = await persistUndoJournal(this.workspaceRoot, {
+                plan: added.value.plan,
+                source: 'loop:add',
+                touchedFiles: added.value.undoSnapshot.touchedFiles,
+                diffByFile: added.value.execution.diffByFile,
+                before: added.value.undoSnapshot.before,
+                after: added.value.undoSnapshot.after,
+            }, this.fs);
+            if (undoPersisted.ok) {
+                added.value.undoId = undoPersisted.value.undoId;
+            }
+        }
+
+        return added;
     }
 
     async update(
@@ -328,7 +373,7 @@ export class LoopKernel {
             return loaded;
         }
 
-        return updateComponent(this.workspaceRoot, this.providerHost, refText, {
+        const updated = await updateComponent(this.workspaceRoot, this.providerHost, refText, {
             targetPath: options.targetPath,
             dryRun: options.dryRun,
             force: options.force,
@@ -336,6 +381,25 @@ export class LoopKernel {
             workspaceConfig: loaded.value.config,
             authenticateLane: (laneId, provider) => this.authenticateLaneProvider(laneId, provider),
         });
+        if (!updated.ok) {
+            return updated;
+        }
+
+        if (updated.value.execution.applied && updated.value.undoSnapshot) {
+            const undoPersisted = await persistUndoJournal(this.workspaceRoot, {
+                plan: updated.value.plan,
+                source: 'loop:update',
+                touchedFiles: updated.value.undoSnapshot.touchedFiles,
+                diffByFile: updated.value.execution.diffByFile,
+                before: updated.value.undoSnapshot.before,
+                after: updated.value.undoSnapshot.after,
+            }, this.fs);
+            if (undoPersisted.ok) {
+                updated.value.undoId = undoPersisted.value.undoId;
+            }
+        }
+
+        return updated;
     }
 
     async diff(
@@ -369,12 +433,152 @@ export class LoopKernel {
             return loaded;
         }
 
-        return extractComponent(this.workspaceRoot, inputPath, componentId, {
+        const extracted = await extractComponent(this.workspaceRoot, inputPath, componentId, {
             lane: options.lane,
             relocate: options.relocate,
             packageToo: options.packageToo,
             dryRun: options.dryRun,
             fs: this.fs,
+        });
+        if (!extracted.ok) {
+            return extracted;
+        }
+
+        if (extracted.value.execution.applied && extracted.value.undoSnapshot) {
+            const undoPersisted = await persistUndoJournal(this.workspaceRoot, {
+                plan: extracted.value.plan,
+                source: 'loop:extract',
+                touchedFiles: extracted.value.undoSnapshot.touchedFiles,
+                diffByFile: extracted.value.execution.diffByFile,
+                before: extracted.value.undoSnapshot.before,
+                after: extracted.value.undoSnapshot.after,
+            }, this.fs);
+            if (undoPersisted.ok) {
+                extracted.value.undoId = undoPersisted.value.undoId;
+            }
+        }
+
+        return extracted;
+    }
+
+    async adopt(
+        installedRef: string,
+        asComponentId: string,
+        options: {
+            dryRun?: boolean;
+        } = {},
+    ): Promise<Result<AdoptResult>> {
+        const adopted = await adoptComponent(this.workspaceRoot, installedRef, asComponentId, {
+            dryRun: options.dryRun,
+            fs: this.fs,
+        });
+        if (!adopted.ok) {
+            return adopted;
+        }
+
+        if (adopted.value.execution.applied && adopted.value.undoSnapshot) {
+            const undoPersisted = await persistUndoJournal(this.workspaceRoot, {
+                plan: adopted.value.plan,
+                source: 'loop:adopt',
+                touchedFiles: adopted.value.undoSnapshot.touchedFiles,
+                diffByFile: adopted.value.execution.diffByFile,
+                before: adopted.value.undoSnapshot.before,
+                after: adopted.value.undoSnapshot.after,
+            }, this.fs);
+            if (undoPersisted.ok) {
+                adopted.value.undoId = undoPersisted.value.undoId;
+            }
+        }
+
+        return adopted;
+    }
+
+    async undo(
+        undoId: string,
+        options: {
+            dryRun?: boolean;
+        } = {},
+    ): Promise<Result<UndoResult>> {
+        const loaded = await loadUndoJournal(this.workspaceRoot, undoId, this.fs);
+        if (!loaded.ok) {
+            return loaded;
+        }
+
+        const execution = await executeUndoJournal(this.workspaceRoot, loaded.value, {
+            dryRun: options.dryRun,
+            fs: this.fs,
+        });
+
+        return ok({
+            undoId,
+            execution,
+            entry: loaded.value,
+        });
+    }
+
+    async listComponents(options: {
+        query?: string;
+    } = {}): Promise<Result<ListedComponent[]>> {
+        return listWorkspaceComponents(this.workspaceRoot, {
+            query: options.query,
+            fs: this.fs,
+        });
+    }
+
+    async showComponent(componentId: string): Promise<Result<{ manifestPath: string; manifest: ComponentManifest }>> {
+        const shown = await showWorkspaceComponent(this.workspaceRoot, componentId, {
+            fs: this.fs,
+        });
+        if (!shown.ok) {
+            return shown;
+        }
+
+        return ok({
+            manifestPath: shown.value.manifestPath,
+            manifest: shown.value.manifest,
+        });
+    }
+
+    async runTask(
+        taskId: string,
+        options: {
+            parallel?: boolean;
+            onEvent?: (event: TaskEvent) => void;
+            env?: Record<string, string>;
+        } = {},
+    ): Promise<Result<RunTaskResult>> {
+        const loaded = await this.getWorkspaceConfig();
+        if (!loaded.ok) {
+            return loaded;
+        }
+
+        const run = await runConfiguredTask(this.workspaceRoot, loaded.value.config, taskId, {
+            parallel: options.parallel,
+            onEvent: options.onEvent,
+            env: options.env,
+        });
+        if (!run.ok) {
+            return run;
+        }
+
+        return ok({
+            rootTaskId: taskId,
+            summary: run.value.summary,
+            tasks: run.value.tasks,
+        });
+    }
+
+    async ci(options: CiOptions = {}): Promise<Result<PipelineRunSummary>> {
+        const loaded = await this.getWorkspaceConfig();
+        if (!loaded.ok) {
+            return loaded;
+        }
+
+        const pipelineId = options.pipelineId ?? loaded.value.config.defaults.ciPipeline ?? 'ci';
+        return runPipeline(this.workspaceRoot, loaded.value.config, pipelineId, {
+            parallel: options.parallel,
+            onEvent: options.onEvent,
+            env: options.env,
         });
     }
 

@@ -12,6 +12,10 @@ import { sha256 } from '../utils/hash.js';
 import type { AddComponentResult } from '../types.js';
 import { buildComponentInstallPlan } from './plan.js';
 import {
+    captureFileStates,
+    collectPatchPlanTouchedFiles,
+} from '../undo/snapshot.js';
+import {
     readComponentLockfile,
     upsertInstallRecord,
     writeComponentLockfile,
@@ -53,12 +57,19 @@ function fallbackWorkspaceConfig(): LoopWorkspaceConfig {
                 loop: 'local',
                 file: 'file',
             },
+            ciPipeline: 'ci',
         },
         modules: [],
-        toolchains: [{ id: 'typescript', kind: 'typescript', options: {} }],
+        toolchains: [{ id: 'typescript', kind: 'typescript', config: {} }],
         components: {
             defaultTarget: '.',
             ignoreGlobs: [],
+        },
+        tasks: {},
+        pipelines: {},
+        overrides: {
+            components: {},
+            modules: {},
         },
     };
 }
@@ -100,12 +111,17 @@ export async function addComponent(
         overwriteFiles: false,
         fs,
     });
+    const touchedFiles = collectPatchPlanTouchedFiles(plan);
+    const before = await captureFileStates(workspaceRoot, touchedFiles, fs);
 
     const execution = await executePatchPlan(plan, {
         workspaceRoot,
         dryRun: options.dryRun,
         fs,
     });
+    const after = execution.applied
+        ? await captureFileStates(workspaceRoot, touchedFiles, fs)
+        : before;
 
     if (!options.dryRun && execution.applied) {
         const lockfile = await readComponentLockfile(workspaceRoot, fs);
@@ -143,6 +159,11 @@ export async function addComponent(
             plan,
             execution,
             lockfile: nextLockfile,
+            undoSnapshot: {
+                touchedFiles,
+                before,
+                after,
+            },
         });
     }
 
@@ -151,5 +172,10 @@ export async function addComponent(
         plan,
         execution,
         lockfile,
+        undoSnapshot: {
+            touchedFiles,
+            before,
+            after,
+        },
     });
 }

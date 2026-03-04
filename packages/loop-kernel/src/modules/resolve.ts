@@ -1,5 +1,6 @@
 import path from 'node:path';
 import {
+    err,
     parseLoopRef,
     type LoopWorkspaceConfig,
     type Result,
@@ -25,12 +26,31 @@ export async function resolveModuleRef(
     if (!parsed.ok) {
         return parsed;
     }
+    const override = config.overrides.modules[refText];
+    let effectiveRef = parsed.value;
+    if (override?.ref) {
+        const parsedOverrideRef = parseLoopRef(override.ref);
+        if (!parsedOverrideRef.ok) {
+            return err({
+                code: 'lane.override_invalid_ref',
+                message: `Invalid module override ref for ${refText}.`,
+                details: {
+                    refText,
+                    overrideRef: override.ref,
+                },
+            });
+        }
+        effectiveRef = parsedOverrideRef.value;
+    }
 
     const laneResolution = resolveLaneInstanceForRef(
         config,
         (kind) => host.getLaneProviderByKind(kind),
-        parsed.value,
+        effectiveRef,
         'module',
+        {
+            laneId: override?.laneId,
+        },
     );
     if (!laneResolution.ok) {
         return laneResolution;

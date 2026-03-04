@@ -123,7 +123,12 @@ function selectLaneId(
     config: LoopWorkspaceConfig,
     refKind: LoopRef['kind'],
     target: LaneTarget,
+    forcedLaneId?: string,
 ): string {
+    if (forcedLaneId) {
+        return forcedLaneId;
+    }
+
     const mapped = config.defaults.refKindMap[refKind];
     if (mapped) {
         return mapped;
@@ -139,8 +144,11 @@ export function resolveLaneInstanceForRef(
     getProviderByKind: (kind: string) => LaneProvider | undefined,
     ref: LoopRef,
     target: LaneTarget,
+    options: {
+        laneId?: string;
+    } = {},
 ): Result<ResolvedLaneInstance> {
-    const laneId = selectLaneId(config, ref.kind, target);
+    const laneId = selectLaneId(config, ref.kind, target, options.laneId);
     const lane = config.lanes[laneId];
     if (!lane) {
         return err({

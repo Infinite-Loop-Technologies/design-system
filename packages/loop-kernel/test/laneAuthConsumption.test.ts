@@ -120,10 +120,17 @@ test('kernel consumes lane auth token before provider resolve', async () => {
                     local: 'workspace',
                     loop: 'workspace',
                 },
+                ciPipeline: 'ci',
             },
             modules: [],
-            toolchains: [{ id: 'typescript', kind: 'typescript', options: {} }],
+            toolchains: [{ id: 'typescript', kind: 'typescript', config: {} }],
             components: { defaultTarget: '.', ignoreGlobs: [] },
+            tasks: {},
+            pipelines: {},
+            overrides: {
+                components: {},
+                modules: {},
+            },
         }, { spaces: 2 });
 
         const kernel = createKernel({ workspaceRoot });

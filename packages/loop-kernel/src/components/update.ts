@@ -13,6 +13,10 @@ import { sha256 } from '../utils/hash.js';
 import type { UpdateComponentResult } from '../types.js';
 import { buildComponentInstallPlan } from './plan.js';
 import {
+    captureFileStates,
+    collectPatchPlanTouchedFiles,
+} from '../undo/snapshot.js';
+import {
     findInstallRecord,
     readComponentLockfile,
     upsertInstallRecord,
@@ -55,12 +59,19 @@ function fallbackWorkspaceConfig(): LoopWorkspaceConfig {
                 loop: 'local',
                 file: 'file',
             },
+            ciPipeline: 'ci',
         },
         modules: [],
-        toolchains: [{ id: 'typescript', kind: 'typescript', options: {} }],
+        toolchains: [{ id: 'typescript', kind: 'typescript', config: {} }],
         components: {
             defaultTarget: '.',
             ignoreGlobs: [],
+        },
+        tasks: {},
+        pipelines: {},
+        overrides: {
+            components: {},
+            modules: {},
         },
     };
 }
@@ -159,18 +170,28 @@ export async function updateComponent(
         overwriteFiles: true,
         fs,
     });
+    const touchedFiles = collectPatchPlanTouchedFiles(plan);
+    const before = await captureFileStates(workspaceRoot, touchedFiles, fs);
 
     const execution = await executePatchPlan(plan, {
         workspaceRoot,
         dryRun: options.dryRun,
         fs,
     });
+    const after = execution.applied
+        ? await captureFileStates(workspaceRoot, touchedFiles, fs)
+        : before;
 
     if (options.dryRun || !execution.applied) {
         return ok({
             plan,
             execution,
             lockfile,
+            undoSnapshot: {
+                touchedFiles,
+                before,
+                after,
+            },
         });
     }
 
@@ -206,5 +227,10 @@ export async function updateComponent(
         plan,
         execution,
         lockfile: nextLockfile,
+        undoSnapshot: {
+            touchedFiles,
+            before,
+            after,
+        },
     });
 }

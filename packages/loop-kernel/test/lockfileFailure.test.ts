@@ -33,12 +33,19 @@ function workspaceConfig(): LoopWorkspaceConfig {
                 loop: 'local',
                 file: 'file',
             },
+            ciPipeline: 'ci',
         },
         modules: [],
-        toolchains: [{ id: 'typescript', kind: 'typescript', options: {} }],
+        toolchains: [{ id: 'typescript', kind: 'typescript', config: {} }],
         components: {
             defaultTarget: '.',
             ignoreGlobs: [],
+        },
+        tasks: {},
+        pipelines: {},
+        overrides: {
+            components: {},
+            modules: {},
         },
     };
 }

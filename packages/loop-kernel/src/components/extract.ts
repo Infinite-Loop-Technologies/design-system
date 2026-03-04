@@ -10,6 +10,10 @@ import { nodeFsGateway, type FsGateway } from '../io/fsGateway.js';
 import { executePatchPlan } from '../patch/executor.js';
 import { sha256 } from '../utils/hash.js';
 import { stableStringify } from '../utils/json.js';
+import {
+    captureFileStates,
+    collectPatchPlanTouchedFiles,
+} from '../undo/snapshot.js';
 import type { ExtractResult } from '../types.js';
 
 function sanitizeComponentId(componentId: string): string {
@@ -227,17 +231,27 @@ export async function extractComponent(
         preconditions: [],
         postconditions: [],
     };
+    const touchedFiles = collectPatchPlanTouchedFiles(plan);
+    const before = await captureFileStates(workspaceRoot, touchedFiles, fs);
 
     const execution = await executePatchPlan(plan, {
         workspaceRoot,
         dryRun: options.dryRun,
         fs,
     });
+    const after = execution.applied
+        ? await captureFileStates(workspaceRoot, touchedFiles, fs)
+        : before;
 
     return ok({
         componentId: manifestId,
         snapshotId,
         plan,
         execution,
+        undoSnapshot: {
+            touchedFiles,
+            before,
+            after,
+        },
     });
 }

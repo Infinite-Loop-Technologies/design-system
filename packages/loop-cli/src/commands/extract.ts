@@ -24,4 +24,7 @@ export async function handleExtract(pathArg: string, options: {
     console.log(renderPlan(result.value.plan));
     console.log(renderExecution(result.value.execution));
     console.log(`component=${result.value.componentId} snapshot=${result.value.snapshotId}`);
+    if (result.value.undoId) {
+        console.log(`undo=${result.value.undoId}`);
+    }
 }

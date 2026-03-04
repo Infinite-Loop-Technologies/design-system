@@ -1,4 +1,7 @@
 import type {
+    PipelineRunSummary,
+    TaskEvent,
+    TaskRunSummary,
     ComponentLockfile,
     ComponentManifest,
     Diagnostic,
@@ -6,8 +9,11 @@ import type {
     LaneInstance,
     LoopWorkspaceConfig,
     ModuleManifest,
+    OverrideEntry,
     OperationResult,
     PatchPlan,
+    UndoFileState,
+    UndoJournalEntry,
     Result,
 } from '@loop-kit/loop-contracts';
 
@@ -57,6 +63,12 @@ export type AddComponentResult = {
     plan: PatchPlan;
     execution: PatchExecutionResult;
     lockfile: ComponentLockfile;
+    undoSnapshot?: {
+        touchedFiles: string[];
+        before: UndoFileState[];
+        after: UndoFileState[];
+    };
+    undoId?: string;
 };
 
 export type UpdateComponentResult = AddComponentResult;
@@ -67,6 +79,64 @@ export type ExtractResult = {
     snapshotId: string;
     plan: PatchPlan;
     execution: PatchExecutionResult;
+    undoSnapshot?: {
+        touchedFiles: string[];
+        before: UndoFileState[];
+        after: UndoFileState[];
+    };
+    undoId?: string;
+};
+
+export type AdoptResult = {
+    componentId: string;
+    sourceInstallRef: string;
+    sourcePath: string;
+    componentDir: string;
+    previewPath: string;
+    manifest: ComponentManifest;
+    plan: PatchPlan;
+    execution: PatchExecutionResult;
+    undoSnapshot?: {
+        touchedFiles: string[];
+        before: UndoFileState[];
+        after: UndoFileState[];
+    };
+    undoId?: string;
+};
+
+export type UndoResult = {
+    undoId: string;
+    execution: PatchExecutionResult;
+    entry: UndoJournalEntry;
+};
+
+export type ListedComponent = {
+    id: string;
+    manifestPath: string;
+    sourceDir: string;
+    name: string;
+    version: string;
+    description?: string;
+    tags?: string[];
+};
+
+export type RunTaskOptions = {
+    parallel?: boolean;
+    onEvent?: (event: TaskEvent) => void;
+    env?: Record<string, string>;
+};
+
+export type RunTaskResult = {
+    rootTaskId: string;
+    summary: TaskRunSummary;
+    tasks: TaskRunSummary[];
+};
+
+export type CiOptions = {
+    pipelineId?: string;
+    parallel?: boolean;
+    onEvent?: (event: TaskEvent) => void;
+    env?: Record<string, string>;
 };
 
 export type LaneStatus = {
@@ -100,6 +170,11 @@ export type ResolveModuleResult = {
     baseDir: string;
     snapshotId: string;
     laneId: string;
+};
+
+export type ResolveOverrideResult = {
+    refText: string;
+    override?: OverrideEntry;
 };
 
 export type KernelCommandResult<T> = Result<T, KernelError>;

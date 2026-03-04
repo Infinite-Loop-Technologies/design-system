@@ -14,6 +14,9 @@ export async function handleAdd(ref: string, options: { cwd?: string; to?: strin
 
     console.log(renderPlan(result.value.plan));
     console.log(renderExecution(result.value.execution));
+    if (result.value.undoId) {
+        console.log(`undo=${result.value.undoId}`);
+    }
 }
 
 export async function handleUpdate(ref: string, options: { cwd?: string; to?: string; dryRun?: boolean; force?: boolean }): Promise<void> {
@@ -30,6 +33,9 @@ export async function handleUpdate(ref: string, options: { cwd?: string; to?: st
 
     console.log(renderPlan(result.value.plan));
     console.log(renderExecution(result.value.execution));
+    if (result.value.undoId) {
+        console.log(`undo=${result.value.undoId}`);
+    }
 }
 
 export async function handleDiff(ref: string, options: { cwd?: string; to?: string }): Promise<void> {

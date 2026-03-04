@@ -20,15 +20,18 @@
     },
     "files": ["dist", "README.md"],
     "scripts": {
-        "build": "pnpm --filter @loop-kit/loop-contracts build && pnpm --filter @loop-kit/loop-kernel build && tsc -p tsconfig.build.json",
-        "typecheck": "pnpm --filter @loop-kit/loop-contracts build && pnpm --filter @loop-kit/loop-kernel build && tsc -p tsconfig.json --noEmit",
+        "build": "pnpm --filter @loop-kit/loop-contracts build && pnpm --filter @loop-kit/loop-kernel build && pnpm --filter @loop-kit/loopd build && pnpm --filter @loop-kit/loop-mcp build && pnpm --filter @loop-kit/loop-ai build && tsc -p tsconfig.build.json",
+        "typecheck": "pnpm --filter @loop-kit/loop-contracts build && pnpm --filter @loop-kit/loop-kernel build && pnpm --filter @loop-kit/loopd build && pnpm --filter @loop-kit/loop-mcp build && pnpm --filter @loop-kit/loop-ai build && tsc -p tsconfig.json --noEmit",
         "test": "node --import tsx --test ./test/**/*.test.ts",
         "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
         "prepack": "pnpm run clean && pnpm run build"
     },
     "dependencies": {
+        "@loop-kit/loop-ai": "workspace:*",
         "@loop-kit/loop-contracts": "workspace:*",
+        "@loop-kit/loop-mcp": "workspace:*",
         "@loop-kit/loop-kernel": "workspace:*",
+        "@loop-kit/loopd": "workspace:*",
         "commander": "^14.0.2",
         "picocolors": "^1.1.1"
     },

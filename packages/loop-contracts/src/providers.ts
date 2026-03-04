@@ -4,6 +4,7 @@ import { ModuleManifestSchema } from './manifests/module.js';
 import { LoopRefSchema } from './refs.js';
 import { PatchPlanSchema } from './patch-plan.js';
 import { DiagnosticSchema } from './result.js';
+import { TaskDefinitionSchema } from './workspace.js';
 
 export const ProviderCapabilitySchema = z.enum(['lane-provider', 'patch-adapter', 'toolchain-adapter']);
 export type ProviderCapability = z.infer<typeof ProviderCapabilitySchema>;
@@ -80,6 +81,25 @@ export const ToolchainRunResponseSchema = z.object({
     stderr: z.string(),
 });
 
+export const ToolchainDiagnoseRequestSchema = z.object({
+    workspaceRoot: z.string().min(1),
+});
+
+export const ToolchainDiagnoseResponseSchema = z.object({
+    id: z.string().min(1),
+    diagnostics: z.array(DiagnosticSchema).default([]),
+    details: z.record(z.string(), z.unknown()).default({}),
+});
+
+export const ToolchainTasksRequestSchema = z.object({
+    workspaceRoot: z.string().min(1),
+});
+
+export const ToolchainTasksResponseSchema = z.object({
+    id: z.string().min(1),
+    tasks: z.record(z.string(), TaskDefinitionSchema).default({}),
+});
+
 export type LaneResolveComponentRequest = z.infer<typeof LaneResolveComponentRequestSchema>;
 export type LaneResolveComponentResponse = z.infer<typeof LaneResolveComponentResponseSchema>;
 export type LaneResolveModuleRequest = z.infer<typeof LaneResolveModuleRequestSchema>;
@@ -93,3 +113,7 @@ export type ToolchainPlanFixRequest = z.infer<typeof ToolchainPlanFixRequestSche
 export type ToolchainPlanFixResponse = z.infer<typeof ToolchainPlanFixResponseSchema>;
 export type ToolchainRunRequest = z.infer<typeof ToolchainRunRequestSchema>;
 export type ToolchainRunResponse = z.infer<typeof ToolchainRunResponseSchema>;
+export type ToolchainDiagnoseRequest = z.infer<typeof ToolchainDiagnoseRequestSchema>;
+export type ToolchainDiagnoseResponse = z.infer<typeof ToolchainDiagnoseResponseSchema>;
+export type ToolchainTasksRequest = z.infer<typeof ToolchainTasksRequestSchema>;
+export type ToolchainTasksResponse = z.infer<typeof ToolchainTasksResponseSchema>;
